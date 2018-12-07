@@ -1,0 +1,9 @@
+{
+  "require": {
+    "cboden/ratchet": "*",
+    "psr/container": "^1.0"
+  },
+  "autoload": {
+  "psr-4": { "clip\\": ["src/clip"] }
+}
+}
