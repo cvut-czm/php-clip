@@ -37,5 +37,6 @@ class WaitForInput {
     }
     public function __construct(callable $fnc) {
         $this->fnc=$fnc;
+
     }
 }

@@ -14,8 +14,11 @@ class PrintBuilder {
 
     private $opened = [];
 
-    public function __construct(Console $console) {
+    private $isconsole=false;
+
+    public function __construct(Console $console,bool $isconsole=false) {
         $this->console = $console;
+        $this->isconsole=$isconsole;
     }
 
     public function write(string $string) : PrintBuilder
@@ -46,7 +49,7 @@ class PrintBuilder {
     }
     public function progressBar() : ProgressBar
     {
-        return new ProgressBar($this);
+        return new ProgressBar($this,$this->isconsole);
     }
     public function sendInputLine() : PrintBuilder
     {

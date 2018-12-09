@@ -30,8 +30,10 @@ use clip\PrintBuilder;
 class ProgressBar {
 
     private $builder;
-    public function __construct(PrintBuilder $builder) {
+    private $isconsole;
+    public function __construct(PrintBuilder $builder,bool $out=true) {
         $this->builder=$builder;
+        $this->isconsole=$out;
     }
 
     public function printBuilder() : PrintBuilder {
@@ -47,8 +49,9 @@ class ProgressBar {
                 $o .= '␣';
         }
         $o.='] '.$text;
-        if($deleteLastLine)
+        if($deleteLastLine && !$this->isconsole)
             $this->builder->deleteLastLine();
-        $this->builder->writeln($o)->send();
+        if(!$this->isconsole)
+            $this->builder->writeln($o)->send();
     }
 }

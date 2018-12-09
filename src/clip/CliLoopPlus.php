@@ -10,50 +10,8 @@ use React\EventLoop\Timer\Timer;
 use React\EventLoop\Timer\Timers;
 use React\EventLoop\TimerInterface;
 
-/**
- * A `stream_select()` based event loop.
- *
- * This uses the [`stream_select()`](http://php.net/manual/en/function.stream-select.php)
- * function and is the only implementation which works out of the box with PHP.
- *
- * This event loop works out of the box on PHP 5.4 through PHP 7+ and HHVM.
- * This means that no installation is required and this library works on all
- * platforms and supported PHP versions.
- * Accordingly, the [`Factory`](#factory) will use this event loop by default if
- * you do not install any of the event loop extensions listed below.
- *
- * Under the hood, it does a simple `select` system call.
- * This system call is limited to the maximum file descriptor number of
- * `FD_SETSIZE` (platform dependent, commonly 1024) and scales with `O(m)`
- * (`m` being the maximum file descriptor number passed).
- * This means that you may run into issues when handling thousands of streams
- * concurrently and you may want to look into using one of the alternative
- * event loop implementations listed below in this case.
- * If your use case is among the many common use cases that involve handling only
- * dozens or a few hundred streams at once, then this event loop implementation
- * performs really well.
- *
- * If you want to use signal handling (see also [`addSignal()`](#addsignal) below),
- * this event loop implementation requires `ext-pcntl`.
- * This extension is only available for Unix-like platforms and does not support
- * Windows.
- * It is commonly installed as part of many PHP distributions.
- * If this extension is missing (or you're running on Windows), signal handling is
- * not supported and throws a `BadMethodCallException` instead.
- *
- * This event loop is known to rely on wall-clock time to schedule future
- * timers, because a monotonic time source is not available in PHP by default.
- * While this does not affect many common use cases, this is an important
- * distinction for programs that rely on a high time precision or on systems
- * that are subject to discontinuous time adjustments (time jumps).
- * This means that if you schedule a timer to trigger in 30s and then adjust
- * your system time forward by 20s, the timer may trigger in 10s.
- * See also [`addTimer()`](#addtimer) for more details.
- *
- * @link http://php.net/manual/en/function.stream-select.php
- */
-final class StreamSelectLoopPlus implements LoopInterfacePlus
-{
+class CliLoopPlus implements LoopInterfacePlus {
+
     /** @internal */
     const MICROSECONDS_PER_SECOND = 1000000;
 
@@ -67,16 +25,14 @@ final class StreamSelectLoopPlus implements LoopInterfacePlus
     private $pcntl = false;
     private $signals;
 
-    public function __construct()
-    {
+    public function __construct() {
         $this->futureTickQueue = new FutureTickQueue();
         $this->timers = new Timers();
         $this->pcntl = \extension_loaded('pcntl');
         $this->signals = new SignalsHandler();
     }
 
-    public function addReadStream($stream, $listener)
-    {
+    public function addReadStream($stream, $listener) {
         $key = (int) $stream;
 
         if (!isset($this->readStreams[$key])) {
@@ -85,8 +41,7 @@ final class StreamSelectLoopPlus implements LoopInterfacePlus
         }
     }
 
-    public function addWriteStream($stream, $listener)
-    {
+    public function addWriteStream($stream, $listener) {
         $key = (int) $stream;
 
         if (!isset($this->writeStreams[$key])) {
@@ -95,8 +50,7 @@ final class StreamSelectLoopPlus implements LoopInterfacePlus
         }
     }
 
-    public function removeReadStream($stream)
-    {
+    public function removeReadStream($stream) {
         $key = (int) $stream;
 
         unset(
@@ -105,8 +59,7 @@ final class StreamSelectLoopPlus implements LoopInterfacePlus
         );
     }
 
-    public function removeWriteStream($stream)
-    {
+    public function removeWriteStream($stream) {
         $key = (int) $stream;
 
         unset(
@@ -115,8 +68,7 @@ final class StreamSelectLoopPlus implements LoopInterfacePlus
         );
     }
 
-    public function addTimer($interval, $callback)
-    {
+    public function addTimer($interval, $callback) {
         $timer = new Timer($interval, $callback, false);
 
         $this->timers->add($timer);
@@ -124,8 +76,7 @@ final class StreamSelectLoopPlus implements LoopInterfacePlus
         return $timer;
     }
 
-    public function addPeriodicTimer($interval, $callback)
-    {
+    public function addPeriodicTimer($interval, $callback) {
         $timer = new Timer($interval, $callback, true);
 
         $this->timers->add($timer);
@@ -133,18 +84,15 @@ final class StreamSelectLoopPlus implements LoopInterfacePlus
         return $timer;
     }
 
-    public function cancelTimer(TimerInterface $timer)
-    {
+    public function cancelTimer(TimerInterface $timer) {
         $this->timers->cancel($timer);
     }
 
-    public function futureTick($listener)
-    {
+    public function futureTick($listener) {
         $this->futureTickQueue->add($listener);
     }
 
-    public function addSignal($signal, $listener)
-    {
+    public function addSignal($signal, $listener) {
         if ($this->pcntl === false) {
             throw new \BadMethodCallException('Event loop feature "signals" isn\'t supported by the "StreamSelectLoop"');
         }
@@ -157,8 +105,7 @@ final class StreamSelectLoopPlus implements LoopInterfacePlus
         }
     }
 
-    public function removeSignal($signal, $listener)
-    {
+    public function removeSignal($signal, $listener) {
         if (!$this->signals->count($signal)) {
             return;
         }
@@ -170,8 +117,7 @@ final class StreamSelectLoopPlus implements LoopInterfacePlus
         }
     }
 
-    public function run()
-    {
+    public function run() {
         $this->running = true;
 
         while ($this->running) {
@@ -183,7 +129,7 @@ final class StreamSelectLoopPlus implements LoopInterfacePlus
                 $timeout = 0;
 
                 // There is a pending timer, only block until it is due ...
-            } elseif ($scheduledAt = $this->timers->getFirst()) {
+            } else if ($scheduledAt = $this->timers->getFirst()) {
                 $timeout = $scheduledAt - $this->timers->getTime();
                 if ($timeout < 0) {
                     $timeout = 0;
@@ -192,23 +138,39 @@ final class StreamSelectLoopPlus implements LoopInterfacePlus
                     // Ensure we do not exceed maximum integer size, which may
                     // cause the loop to tick once every ~35min on 32bit systems.
                     $timeout *= self::MICROSECONDS_PER_SECOND;
-                    $timeout = $timeout > \PHP_INT_MAX ? \PHP_INT_MAX : (int)$timeout;
+                    $timeout = $timeout > \PHP_INT_MAX ? \PHP_INT_MAX : (int) $timeout;
                 }
 
                 // The only possible event is stream or signal activity, so wait forever ...
-            } elseif ($this->readStreams || $this->writeStreams || !$this->signals->isEmpty()) {
-                $timeout = null;
-
-                // There's nothing left to do ...
             } else {
+                $timeout = 500;
             }
-
-            $this->waitForStreamActivity($timeout);
+            $this->non_block_read(STDIN);
+            usleep(10);
         }
     }
 
-    public function stop()
-    {
+    private $handler, $cli;
+
+    public function assign($handler, $cli) {
+        $this->handler = $handler;
+        $this->cli = $cli;
+    }
+
+    private function non_block_read($fd) {
+        $read = array($fd);
+        $write = array();
+        $except = array();
+        $data='';
+        while(stream_select($read, $write, $except, 0)!=0) {
+            $data .= stream_get_line($fd, 1);
+        }
+        if(strlen($data)>0)
+            $this->handler->onMessage($this->cli,$data);
+        return true;
+    }
+
+    public function stop() {
         $this->running = false;
     }
 
@@ -217,9 +179,8 @@ final class StreamSelectLoopPlus implements LoopInterfacePlus
      *
      * @param integer|null $timeout Activity timeout in microseconds, or null to wait forever.
      */
-    private function waitForStreamActivity($timeout)
-    {
-        $read  = $this->readStreams;
+    private function waitForStreamActivity($timeout) {
+        $read = $this->readStreams;
         $write = $this->writeStreams;
 
         $available = $this->streamSelect($read, $write, $timeout);
@@ -253,15 +214,14 @@ final class StreamSelectLoopPlus implements LoopInterfacePlus
      * Emulate a stream_select() implementation that does not break when passed
      * empty stream arrays.
      *
-     * @param array        &$read   An array of read streams to select upon.
-     * @param array        &$write  An array of write streams to select upon.
+     * @param array &$read An array of read streams to select upon.
+     * @param array &$write An array of write streams to select upon.
      * @param integer|null $timeout Activity timeout in microseconds, or null to wait forever.
      *
      * @return integer|false The total number of streams that are ready for read/write.
      * Can return false if stream_select() is interrupted by a signal.
      */
-    private function streamSelect(array &$read, array &$write, $timeout)
-    {
+    private function streamSelect(array &$read, array &$write, $timeout) {
         if ($read || $write) {
             $except = null;
 
@@ -275,7 +235,7 @@ final class StreamSelectLoopPlus implements LoopInterfacePlus
     }
 
     public function executeTick() {
-        while((!$this->running || !$this->futureTickQueue->isEmpty())) {
+        while ((!$this->running || !$this->futureTickQueue->isEmpty())) {
             $this->futureTickQueue->tick();
             $this->timers->tick();
         }

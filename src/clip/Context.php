@@ -150,7 +150,7 @@ abstract class Context extends DiContainer {
         }
         if ($this->waiting_command !== null) {
             $params = new Params('null ' . $data);
-            $return = $this->waiting_command->input($this->console, $this, $params);
+            $return = $this->waiting_command->input($params);
             $this->waiting_command = $return;
             return;
         }

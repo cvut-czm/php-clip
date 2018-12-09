@@ -10,6 +10,7 @@ use React\EventLoop\LoopInterface;
 class Console {
 
     private $con;
+    private $isconsole=false;
     private $auth;
     private $loop;
 
@@ -20,6 +21,8 @@ class Console {
 
     public function __construct(ConnectionInterface $connection, IAuth $auth, LoopInterfacePlus $loop, array $rootContextes = [], array $rootCommands = []) {
         $this->con = $connection;
+        if($connection instanceof CliConnection)
+            $this->isconsole=true;
         $this->printBuilder()
                 ->writeln('==============================')->send()
                 ->writeln('   Context level interface    ')->send()
@@ -109,6 +112,6 @@ class Console {
     }
 
     public function printBuilder(): PrintBuilder {
-        return new PrintBuilder($this);
+        return new PrintBuilder($this,$this->isconsole);
     }
 }
